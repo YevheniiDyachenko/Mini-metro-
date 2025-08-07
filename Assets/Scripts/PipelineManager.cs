@@ -16,25 +16,31 @@ public class PipelineManager : MonoBehaviour
     // `inputConnections` stores incoming connections: toId -> [fromId_1, fromId_2, ...]
     private Dictionary<int, List<int>> inputConnections = new Dictionary<int, List<int>>();
 
+    private int nextNodeId = 0;
+
     void Start()
     {
         Debug.Log("PipelineManager Initialized. Ready to build data flows.");
     }
 
     /// <summary>
-    /// Adds a node to the pipeline. This should be called when a node is instantiated.
+    /// Registers a new node with the pipeline, assigning it a unique ID.
     /// </summary>
-    /// <param name="node">The node to add.</param>
+    /// <param name="node">The node to register.</param>
     public void AddNode(NodeBase node)
     {
-        if (!nodes.ContainsKey(node.nodeData.id))
+        int newId = nextNodeId++;
+        node.nodeData.id = newId;
+
+        if (!nodes.ContainsKey(newId))
         {
-            nodes.Add(node.nodeData.id, node);
-            Debug.Log($"Node added: ID={node.nodeData.id}, Type={node.nodeData.nodeType}");
+            nodes.Add(newId, node);
+            Debug.Log($"Node registered with new ID: {newId}, Type: {node.nodeData.nodeType}");
         }
         else
         {
-            Debug.LogWarning($"Node with ID {node.nodeData.id} already exists.");
+            // This case should ideally never happen with dynamic IDs
+            Debug.LogError($"CRITICAL: Duplicate Node ID generated: {newId}.");
         }
     }
 
@@ -79,12 +85,13 @@ public class PipelineManager : MonoBehaviour
     {
         float totalFlow = 0f;
         var memo = new Dictionary<int, float>(); // Memoization cache for this calculation run
+        var path = new HashSet<int>(); // Path tracker for cycle detection
 
         foreach (var node in nodes.Values)
         {
             if (node is DataSinkNode)
             {
-                totalFlow += CalculateNodeOutput(node.nodeData.id, memo);
+                totalFlow += CalculateNodeOutput(node.nodeData.id, memo, path);
             }
         }
         return totalFlow;
@@ -92,15 +99,25 @@ public class PipelineManager : MonoBehaviour
 
     /// <summary>
     /// Recursively calculates the output flow of a single node using depth-first search.
-    /// Uses memoization to avoid redundant calculations and handle cycles.
+    /// Uses memoization to avoid redundant calculations and a path tracker to prevent cycles.
     /// </summary>
-    private float CalculateNodeOutput(int nodeId, Dictionary<int, float> memo)
+    private float CalculateNodeOutput(int nodeId, Dictionary<int, float> memo, HashSet<int> path)
     {
         // 1. Memoization Check: If we've already calculated this node, return the stored value.
         if (memo.ContainsKey(nodeId))
         {
             return memo[nodeId];
         }
+
+        // 2. Cycle Detection: If the node is already in our current calculation path, we have a cycle.
+        if (path.Contains(nodeId))
+        {
+            Debug.LogWarning($"Cycle detected in pipeline involving node {nodeId}. Breaking loop.");
+            return 0f; // Return 0 flow to break the infinite recursion.
+        }
+
+        // Add node to the current path
+        path.Add(nodeId);
 
         NodeBase currentNode = nodes[nodeId];
         float outputFlow = 0f;
@@ -118,7 +135,7 @@ public class PipelineManager : MonoBehaviour
             {
                 foreach (int inputNodeId in inputConnections[nodeId])
                 {
-                    totalInputFlow += CalculateNodeOutput(inputNodeId, memo);
+                    totalInputFlow += CalculateNodeOutput(inputNodeId, memo, path);
                 }
             }
 
@@ -138,6 +155,7 @@ public class PipelineManager : MonoBehaviour
         }
 
         // 4. Cache Result: Store the result in the memo before returning.
+        path.Remove(nodeId); // Remove node from path before returning
         memo[nodeId] = outputFlow;
         return outputFlow;
     }

@@ -60,20 +60,20 @@ public class LevelManager : MonoBehaviour
 
             // Instantiate the node prefab at the specified position
             GameObject nodeObject = Instantiate(nodeInfo.nodePrefab, nodeInfo.position, Quaternion.identity);
-            nodeObject.name = $"{nodeInfo.nodePrefab.name}_{nodeInfo.nodeId}";
 
             // Get the NodeBase component and initialize its data
             NodeBase nodeBase = nodeObject.GetComponent<NodeBase>();
             if (nodeBase != null)
             {
-                // This assumes the NodeModule is already created or will be created.
-                // A better approach might be to have NodeModule as a struct.
-                // For now, let's create a new one if it's null.
-                if(nodeBase.nodeData == null) nodeBase.nodeData = new NodeModule(nodeInfo.nodeId, "", 0, nodeObject);
-                nodeBase.nodeData.id = nodeInfo.nodeId;
+                // The PipelineManager will now assign the ID, so we just need to ensure
+                // the NodeModule exists.
+                if(nodeBase.nodeData == null) nodeBase.nodeData = new NodeModule(-1, "", 0, nodeObject); // -1 is a placeholder ID
 
-                // Register the new node with the pipeline manager
+                // Register the new node with the pipeline manager, which will assign the final ID.
                 pipelineManager.AddNode(nodeBase);
+
+                // We can now set a more meaningful name with the real ID.
+                nodeObject.name = $"{nodeInfo.nodePrefab.name}_{nodeBase.nodeData.id}";
             }
         }
     }

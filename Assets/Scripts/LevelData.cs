@@ -34,9 +34,6 @@ public class LevelData : ScriptableObject
         [Tooltip("The world position where this node will be placed.")]
         public Vector2 position;
 
-        [Tooltip("The unique ID to assign to this node's NodeModule.")]
-        public int nodeId;
-
         // Future extension: could add initial capacity, cost override, etc.
         // public float startingCapacity;
     }
