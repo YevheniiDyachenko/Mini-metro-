@@ -15,7 +15,7 @@ public class PlayerInputController : MonoBehaviour
     public LineDrawer lineDrawer;
 
     private Camera mainCamera;
-    private NodeView startNodeView; // The node where the drag started
+    private NodeBase startNode; // The node where the drag started
     private bool isDrawingConnection = false;
 
     void Start()
@@ -48,12 +48,12 @@ public class PlayerInputController : MonoBehaviour
 
     private void HandleMouseDown()
     {
-        NodeView targetNode = GetNodeUnderMouse();
+        NodeBase targetNode = GetNodeUnderMouse();
         if (targetNode != null)
         {
             isDrawingConnection = true;
-            startNodeView = targetNode;
-            lineDrawer.StartDrawing(startNodeView.transform.position);
+            startNode = targetNode;
+            lineDrawer.StartDrawing(startNode.transform.position);
         }
     }
 
@@ -68,17 +68,17 @@ public class PlayerInputController : MonoBehaviour
     {
         if (!isDrawingConnection) return;
 
-        NodeView endNodeView = GetNodeUnderMouse();
+        NodeBase endNode = GetNodeUnderMouse();
 
         // Check if the mouse was released over a valid, different node
-        if (endNodeView != null && endNodeView != startNodeView)
+        if (endNode != null && endNode != startNode)
         {
             // Create the logical connection in the backend
-            pipelineManager.ConnectNodes(startNodeView.nodeData.id, endNodeView.nodeData.id);
+            pipelineManager.ConnectNodes(startNode.nodeData.id, endNode.nodeData.id);
 
             // Here you would typically instantiate a permanent line visual
             // For now, the logical connection is made, but not visualized permanently.
-            Debug.Log($"Connection created between node {startNodeView.nodeData.id} and {endNodeView.nodeData.id}");
+            Debug.Log($"Connection created between node {startNode.nodeData.id} and {endNode.nodeData.id}");
         }
 
         // Stop drawing the temporary line regardless of success
@@ -86,22 +86,22 @@ public class PlayerInputController : MonoBehaviour
 
         // Reset state
         isDrawingConnection = false;
-        startNodeView = null;
+        startNode = null;
     }
 
     /// <summary>
-    /// Uses a 2D raycast to find and return a NodeView component under the mouse cursor.
+    /// Uses a 2D raycast to find and return a NodeBase component under the mouse cursor.
     /// </summary>
-    /// <returns>The NodeView if found, otherwise null.</returns>
-    private NodeView GetNodeUnderMouse()
+    /// <returns>The NodeBase if found, otherwise null.</returns>
+    private NodeBase GetNodeUnderMouse()
     {
         Vector2 mousePosition = mainCamera.ScreenToWorldPoint(Input.mousePosition);
         RaycastHit2D hit = Physics2D.Raycast(mousePosition, Vector2.zero);
 
         if (hit.collider != null)
         {
-            // Check if the hit object has a NodeView component
-            return hit.collider.GetComponent<NodeView>();
+            // Check if the hit object has a NodeBase component
+            return hit.collider.GetComponent<NodeBase>();
         }
 
         return null;

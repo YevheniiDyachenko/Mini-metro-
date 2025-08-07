@@ -3,13 +3,14 @@ using System.Collections.Generic;
 using System.Linq;
 
 /// <summary>
-/// Auto-generated Service for managing data pipelines.
-/// This class handles the creation, connection, and calculation of data flows.
-/// Corresponds to: jg generate service PipelineManager --methods "AddNode(NodeModule), ConnectNodes(int fromId,int toId), CalculateFlow():float"
+/// Manages the logical state of the data pipeline, including all nodes and connections.
 /// </summary>
 public class PipelineManager : MonoBehaviour
 {
-    private Dictionary<int, NodeModule> nodes = new Dictionary<int, NodeModule>();
+    // Event to notify other systems (like the visualizer) when a connection is made.
+    public static event System.Action<NodeBase, NodeBase> OnConnectionMade;
+
+    private Dictionary<int, NodeBase> nodes = new Dictionary<int, NodeBase>();
     // The connections are stored as a dictionary where the key is the source node ID
     // and the value is a list of target node IDs.
     private Dictionary<int, List<int>> connections = new Dictionary<int, List<int>>();
@@ -20,19 +21,19 @@ public class PipelineManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Adds a node to the pipeline.
+    /// Adds a node to the pipeline. This should be called when a node is instantiated.
     /// </summary>
     /// <param name="node">The node to add.</param>
-    public void AddNode(NodeModule node)
+    public void AddNode(NodeBase node)
     {
-        if (!nodes.ContainsKey(node.id))
+        if (!nodes.ContainsKey(node.nodeData.id))
         {
-            nodes.Add(node.id, node);
-            Debug.Log($"Node added: ID={node.id}, Type={node.nodeType}");
+            nodes.Add(node.nodeData.id, node);
+            Debug.Log($"Node added: ID={node.nodeData.id}, Type={node.nodeData.nodeType}");
         }
         else
         {
-            Debug.LogWarning($"Node with ID {node.id} already exists.");
+            Debug.LogWarning($"Node with ID {node.nodeData.id} already exists.");
         }
     }
 
@@ -50,7 +51,9 @@ public class PipelineManager : MonoBehaviour
                 connections[fromId] = new List<int>();
             }
             connections[fromId].Add(toId);
-            Debug.Log($"Connection created: {fromId} -> {toId}");
+
+            // Fire the event to notify listeners that a connection was made
+            OnConnectionMade?.Invoke(nodes[fromId], nodes[toId]);
         }
         else
         {
@@ -69,19 +72,20 @@ public class PipelineManager : MonoBehaviour
         float totalFlow = 0f;
         foreach (var node in nodes.Values)
         {
-            if (node.nodeType == "DataSource")
+            if (node.nodeData.nodeType == "DataSource")
             {
-                totalFlow += node.capacity;
+                totalFlow += node.nodeData.capacity;
             }
         }
-        Debug.Log($"Total calculated flow is: {totalFlow}");
+        // Disabling this log as it's called every frame by the LevelManager
+        // Debug.Log($"Total calculated flow is: {totalFlow}");
         return totalFlow;
     }
 
-    // Helper method to get a node by its ID, could be useful.
-    public NodeModule GetNodeById(int id)
+    // Helper method to get a node by its ID.
+    public NodeBase GetNodeById(int id)
     {
-        nodes.TryGetValue(id, out NodeModule node);
+        nodes.TryGetValue(id, out NodeBase node);
         return node;
     }
 }
