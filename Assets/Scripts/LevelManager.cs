@@ -1,20 +1,14 @@
 using UnityEngine;
 
 /// <summary>
-/// Defines and manages the objectives and state for a single level.
-/// It tracks the timer and checks for win/loss conditions.
+/// Manages the state of a single level, driven by a LevelData ScriptableObject.
+/// It initializes the level, tracks objectives, and checks for win/loss conditions.
 /// </summary>
 public class LevelManager : MonoBehaviour
 {
-    [Header("Level Objectives")]
-    [Tooltip("The time limit for the level in seconds.")]
-    public float timeLimit = 180f; // 3 minutes
-
-    [Tooltip("The target data flow rate (e.g., in GB/s) to win the level.")]
-    public float targetFlow = 100f;
-
-    [Tooltip("The starting budget for the level.")]
-    public float initialBudget = 5000f;
+    [Header("Level Configuration")]
+    [Tooltip("The ScriptableObject that defines the current level's properties.")]
+    public LevelData currentLevelData;
 
     [Header("Component References")]
     [Tooltip("Reference to the PipelineManager in the scene.")]
@@ -27,10 +21,10 @@ public class LevelManager : MonoBehaviour
 
     void Start()
     {
-        if (pipelineManager == null)
+        if (currentLevelData == null || pipelineManager == null)
         {
-            Debug.LogError("LevelManager requires a reference to the PipelineManager!");
-            this.enabled = false; // Disable this component if dependencies are missing
+            Debug.LogError("LevelManager is missing critical references (LevelData or PipelineManager)!");
+            this.enabled = false;
             return;
         }
 
@@ -39,11 +33,12 @@ public class LevelManager : MonoBehaviour
 
     void InitializeLevel()
     {
-        timeRemaining = timeLimit;
-        currentBudget = initialBudget;
+        // Load objectives from the LevelData ScriptableObject
+        timeRemaining = currentLevelData.timeLimit;
+        currentBudget = currentLevelData.initialBudget;
         isLevelActive = true;
 
-        // Set initial HUD values via the DashboardManager Singleton
+        // Set initial HUD values
         if (DashboardManager.Instance != null)
         {
             DashboardManager.Instance.SetTime(timeRemaining);
@@ -51,7 +46,36 @@ public class LevelManager : MonoBehaviour
             DashboardManager.Instance.SetFlow(0);
         }
 
+        // Spawn the initial nodes defined in LevelData
+        SpawnInitialNodes();
+
         Time.timeScale = 1f; // Ensure the game is running
+    }
+
+    void SpawnInitialNodes()
+    {
+        foreach (var nodeInfo in currentLevelData.initialNodePlacements)
+        {
+            if (nodeInfo.nodePrefab == null) continue;
+
+            // Instantiate the node prefab at the specified position
+            GameObject nodeObject = Instantiate(nodeInfo.nodePrefab, nodeInfo.position, Quaternion.identity);
+            nodeObject.name = $"{nodeInfo.nodePrefab.name}_{nodeInfo.nodeId}";
+
+            // Get the NodeBase component and initialize its data
+            NodeBase nodeBase = nodeObject.GetComponent<NodeBase>();
+            if (nodeBase != null)
+            {
+                // This assumes the NodeModule is already created or will be created.
+                // A better approach might be to have NodeModule as a struct.
+                // For now, let's create a new one if it's null.
+                if(nodeBase.nodeData == null) nodeBase.nodeData = new NodeModule(nodeInfo.nodeId, "", 0, nodeObject);
+                nodeBase.nodeData.id = nodeInfo.nodeId;
+
+                // Register the new node with the pipeline manager
+                pipelineManager.AddNode(nodeBase);
+            }
+        }
     }
 
     void Update()
@@ -79,7 +103,7 @@ public class LevelManager : MonoBehaviour
         }
 
         // Win condition: Target flow is met or exceeded
-        if (pipelineManager.CalculateFlow() >= targetFlow)
+        if (pipelineManager.CalculateFlow() >= currentLevelData.targetFlow)
         {
             EndLevel(true); // Pass 'true' for win
         }
