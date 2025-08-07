@@ -53,6 +53,7 @@ public class PlayerInputController : MonoBehaviour
         {
             isDrawingConnection = true;
             startNode = targetNode;
+            startNode.GetComponent<NodeAnimator>()?.PlaySelectionAnimation();
             lineDrawer.StartDrawing(startNode.transform.position);
         }
     }
@@ -68,6 +69,9 @@ public class PlayerInputController : MonoBehaviour
     {
         if (!isDrawingConnection) return;
 
+        // Deselect the starting node
+        startNode.GetComponent<NodeAnimator>()?.PlayDeselectionAnimation();
+
         NodeBase endNode = GetNodeUnderMouse();
 
         // Check if the mouse was released over a valid, different node
@@ -76,9 +80,7 @@ public class PlayerInputController : MonoBehaviour
             // Create the logical connection in the backend
             pipelineManager.ConnectNodes(startNode.nodeData.id, endNode.nodeData.id);
 
-            // Here you would typically instantiate a permanent line visual
-            // For now, the logical connection is made, but not visualized permanently.
-            Debug.Log($"Connection created between node {startNode.nodeData.id} and {endNode.nodeData.id}");
+            // In a full game, the end node might also play a "connection successful" animation.
         }
 
         // Stop drawing the temporary line regardless of success
